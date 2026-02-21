@@ -14,6 +14,7 @@ jobs:
     outputs:
       ath10k_changed_bdfs: ${{ steps.find_bdfs.outputs.ath10k_changed_bdfs }}
       ath11k_changed_bdfs: ${{ steps.find_bdfs.outputs.ath11k_changed_bdfs }}
+      ath12k_changed_bdfs: ${{ steps.find_bdfs.outputs.ath12k_changed_bdfs }}
 
     steps:
       - name: Determine changed BDF-s
@@ -27,26 +28,31 @@ jobs:
           # Find list of ath11k changed BDF-s
           ATH11K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.ipq5018|.ipq6018|.ipq8074|.qcn6122|.qcn9074')"
 
+          # Find list of ath12k changed BDF-s
+          ATH12K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.qcn9274|.wcn7850')"
+
           echo "ath10k_changed_bdfs="$ATH10K_CHANGED_BDFS"" >> $GITHUB_OUTPUT
           echo "ath11k_changed_bdfs="$ATH11K_CHANGED_BDFS"" >> $GITHUB_OUTPUT
+          echo "ath12k_changed_bdfs="$ATH12K_CHANGED_BDFS"" >> $GITHUB_OUTPUT
 
   print_bdf_info:
     name: Print BDF info
-    if: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs != '' || needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs != '' }}
+    if: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs != '' || needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs != '' || needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs != '' }}
     needs: determine_changed_bdfs
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get required tools
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: qca/qca-swiss-army-knife
           path: qca_tools
           sparse-checkout: |
             tools/scripts/ath10k/ath10k-bdencoder
             tools/scripts/ath11k/ath11k-bdencoder
+            tools/scripts/ath12k/ath12k-bdencoder
           sparse-checkout-cone-mode: false
 
       - name: Print ath10k BDF info
@@ -63,4 +69,12 @@ jobs:
           for BDF in ${{ needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs }}; do
           echo "BDF info for $BDF"
             python qca_tools/tools/scripts/ath11k/ath11k-bdencoder -i "$BDF"
+          done
+
+      - name: Print ath12k BDF info
+        if: ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs != '' }}
+        run: |
+          for BDF in ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs }}; do
+          echo "BDF info for $BDF"
+            python qca_tools/tools/scripts/ath12k/ath12k-bdencoder -i "$BDF"
           done
