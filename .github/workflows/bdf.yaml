@@ -26,7 +26,7 @@ jobs:
           ATH10K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.qca4019|.qca9888|.qca9889|.qca9984|.qca9988|.qca99x0')"
 
           # Find list of ath11k changed BDF-s
-          ATH11K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.ipq5018|.ipq6018|.ipq8074|.qcn6122|.qcn9074')"
+          ATH11K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.ipq5018|.ipq6018|.ipq8074|.ipq9574|.qcn6122|.qcn9074')"
 
           # Find list of ath12k changed BDF-s
           ATH12K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.qcn9274|.wcn7850')"
