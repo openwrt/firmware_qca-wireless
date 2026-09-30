@@ -66,7 +66,6 @@ jobs:
       ATH10K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs }}
       ATH11K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs }}
       ATH12K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs }}
-      BDF_INFO_FILE: ${{ runner.temp }}/bdf-info.md
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -83,8 +82,12 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Initialize BDF info
+        id: bdf_info
         run: |
+          BDF_INFO_FILE="$RUNNER_TEMP/bdf-info.md"
           : > "$BDF_INFO_FILE"
+          echo "BDF_INFO_FILE=$BDF_INFO_FILE" >> "$GITHUB_ENV"
+          echo "file=$BDF_INFO_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Print ath10k BDF info
         if: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs != '' }}
@@ -127,5 +130,5 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bdf-info
-          path: ${{ runner.temp }}/bdf-info.md
+          path: ${{ steps.bdf_info.outputs.file }}
           if-no-files-found: error
