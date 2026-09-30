@@ -2,10 +2,13 @@ name: BDF info
 
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   determine_changed_files:
     name: Determine Changed Files
-    uses: openwrt/actions-shared-workflows/.github/workflows/reusable_determine_changed_files.yml@main
+    uses: openwrt/actions-shared-workflows/.github/workflows/reusable_determine_changed_files.yml@483a355b2ee8493c954e89e7a83534cd850842de # main
 
   determine_changed_bdfs:
     name: Determine changed BDF-s
@@ -61,10 +64,10 @@ jobs:
       ATH12K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Get required tools
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: qca/qca-swiss-army-knife
           path: qca_tools
