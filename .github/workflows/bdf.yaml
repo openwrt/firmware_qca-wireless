@@ -51,7 +51,7 @@ jobs:
           ATH11K_CHANGED_BDFS="$(printf '%s\n' "$ALL_CHANGED_FILES" | tr ' ' '\n' | grep -E '\.(ipq5018|ipq6018|ipq8074|qcn6122|qcn9074)$' || true)"
 
           # Find list of ath12k changed BDF-s
-          ATH12K_CHANGED_BDFS="$(printf '%s\n' "$ALL_CHANGED_FILES" | tr ' ' '\n' | grep -E '\.(qcn9274|wcn7850)$' || true)"
+          ATH12K_CHANGED_BDFS="$(printf '%s\n' "$ALL_CHANGED_FILES" | tr ' ' '\n' | grep -E '\.(ipq9574|qcn9274|wcn7850)$' || true)"
 
           write_multiline_output ath10k_changed_bdfs "$ATH10K_CHANGED_BDFS"
           write_multiline_output ath11k_changed_bdfs "$ATH11K_CHANGED_BDFS"
