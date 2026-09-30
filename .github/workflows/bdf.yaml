@@ -66,6 +66,7 @@ jobs:
       ATH10K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs }}
       ATH11K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs }}
       ATH12K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs }}
+      BDF_INFO_FILE: ${{ runner.temp }}/bdf-info.md
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -81,29 +82,50 @@ jobs:
             tools/scripts/ath12k/ath12k-bdencoder
           sparse-checkout-cone-mode: false
 
+      - name: Initialize BDF info
+        run: |
+          : > "$BDF_INFO_FILE"
+
       - name: Print ath10k BDF info
         if: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs != '' }}
         run: |
+          set -euo pipefail
           while IFS= read -r BDF; do
             [ -n "$BDF" ] || continue
-            echo "BDF info for $BDF"
-            python3 qca_tools/tools/scripts/ath10k/ath10k-bdencoder -i "$BDF"
+            {
+              echo "BDF info for $BDF"
+              python3 qca_tools/tools/scripts/ath10k/ath10k-bdencoder -i "$BDF"
+            } 2>&1 | tee -a "$BDF_INFO_FILE"
           done <<< "$ATH10K_CHANGED_BDFS"
 
       - name: Print ath11k BDF info
         if: ${{ needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs != '' }}
         run: |
+          set -euo pipefail
           while IFS= read -r BDF; do
             [ -n "$BDF" ] || continue
-            echo "BDF info for $BDF"
-            python3 qca_tools/tools/scripts/ath11k/ath11k-bdencoder -i "$BDF"
+            {
+              echo "BDF info for $BDF"
+              python3 qca_tools/tools/scripts/ath11k/ath11k-bdencoder -i "$BDF"
+            } 2>&1 | tee -a "$BDF_INFO_FILE"
           done <<< "$ATH11K_CHANGED_BDFS"
 
       - name: Print ath12k BDF info
         if: ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs != '' }}
         run: |
+          set -euo pipefail
           while IFS= read -r BDF; do
             [ -n "$BDF" ] || continue
-            echo "BDF info for $BDF"
-            python3 qca_tools/tools/scripts/ath12k/ath12k-bdencoder -i "$BDF"
+            {
+              echo "BDF info for $BDF"
+              python3 qca_tools/tools/scripts/ath12k/ath12k-bdencoder -i "$BDF"
+            } 2>&1 | tee -a "$BDF_INFO_FILE"
           done <<< "$ATH12K_CHANGED_BDFS"
+
+      - name: Upload BDF info
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bdf-info
+          path: ${{ runner.temp }}/bdf-info.md
+          if-no-files-found: error
