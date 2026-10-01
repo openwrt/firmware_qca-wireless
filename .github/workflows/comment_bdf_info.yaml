@@ -17,8 +17,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check for BDF info
+        id: artifact
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.payload.workflow_run.id,
+                per_page: 100,
+              },
+            );
+            core.setOutput(
+              'exists',
+              artifacts.some((artifact) => artifact.name === 'bdf-info'),
+            );
+
       - name: Download BDF info
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: ${{ steps.artifact.outputs.exists == 'true' }}
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: bdf-info
           path: bdf-info
@@ -26,6 +46,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update pull request comment
+        if: ${{ steps.artifact.outputs.exists == 'true' }}
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           script: |
