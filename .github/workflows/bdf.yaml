@@ -2,15 +2,24 @@ name: BDF info
 
 on: pull_request
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   determine_changed_files:
     name: Determine Changed Files
-    uses: openwrt/actions-shared-workflows/.github/workflows/reusable_determine_changed_files.yml@main
+    uses: openwrt/actions-shared-workflows/.github/workflows/reusable_determine_changed_files.yml@483a355b2ee8493c954e89e7a83534cd850842de # main
 
   determine_changed_bdfs:
     name: Determine changed BDF-s
     needs: determine_changed_files
     runs-on: ubuntu-latest
+    env:
+      ALL_CHANGED_FILES: ${{ needs.determine_changed_files.outputs.all_changed_files }}
     outputs:
       ath10k_changed_bdfs: ${{ steps.find_bdfs.outputs.ath10k_changed_bdfs }}
       ath11k_changed_bdfs: ${{ steps.find_bdfs.outputs.ath11k_changed_bdfs }}
@@ -20,32 +29,49 @@ jobs:
       - name: Determine changed BDF-s
         id: find_bdfs
         run: |
-          # grep will return 1 if no matches, so ignore return code
-          set +e
+          set -euo pipefail
+
+          write_multiline_output() {
+            local name="$1"
+            local value="$2"
+            local delimiter
+
+            delimiter="$(uuidgen)"
+            {
+              echo "${name}<<${delimiter}"
+              printf '%s\n' "$value"
+              echo "$delimiter"
+            } >> "$GITHUB_OUTPUT"
+          }
+
           # Find list of ath10k changed BDF-s
-          ATH10K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.qca4019|.qca9888|.qca9889|.qca9984|.qca9988|.qca99x0')"
+          ATH10K_CHANGED_BDFS="$(printf '%s\n' "$ALL_CHANGED_FILES" | tr ' ' '\n' | grep -E '\.(qca4019|qca9888|qca9889|qca9984|qca9988|qca99x0)$' || true)"
 
           # Find list of ath11k changed BDF-s
-          ATH11K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.ipq5018|.ipq6018|.ipq8074|.qcn6122|.qcn9074')"
+          ATH11K_CHANGED_BDFS="$(printf '%s\n' "$ALL_CHANGED_FILES" | tr ' ' '\n' | grep -E '\.(ipq5018|ipq6018|ipq8074|ipq9574|qcn6122|qcn9074)$' || true)"
 
           # Find list of ath12k changed BDF-s
-          ATH12K_CHANGED_BDFS="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n' | grep -E '.qcn9274|.wcn7850')"
+          ATH12K_CHANGED_BDFS="$(printf '%s\n' "$ALL_CHANGED_FILES" | tr ' ' '\n' | grep -E '\.(qcn9274|wcn7850)$' || true)"
 
-          echo "ath10k_changed_bdfs="$ATH10K_CHANGED_BDFS"" >> $GITHUB_OUTPUT
-          echo "ath11k_changed_bdfs="$ATH11K_CHANGED_BDFS"" >> $GITHUB_OUTPUT
-          echo "ath12k_changed_bdfs="$ATH12K_CHANGED_BDFS"" >> $GITHUB_OUTPUT
+          write_multiline_output ath10k_changed_bdfs "$ATH10K_CHANGED_BDFS"
+          write_multiline_output ath11k_changed_bdfs "$ATH11K_CHANGED_BDFS"
+          write_multiline_output ath12k_changed_bdfs "$ATH12K_CHANGED_BDFS"
 
   print_bdf_info:
     name: Print BDF info
     if: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs != '' || needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs != '' || needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs != '' }}
     needs: determine_changed_bdfs
     runs-on: ubuntu-latest
+    env:
+      ATH10K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs }}
+      ATH11K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs }}
+      ATH12K_CHANGED_BDFS: ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Get required tools
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: qca/qca-swiss-army-knife
           path: qca_tools
@@ -55,26 +81,54 @@ jobs:
             tools/scripts/ath12k/ath12k-bdencoder
           sparse-checkout-cone-mode: false
 
+      - name: Initialize BDF info
+        id: bdf_info
+        run: |
+          BDF_INFO_FILE="$RUNNER_TEMP/bdf-info.md"
+          : > "$BDF_INFO_FILE"
+          echo "BDF_INFO_FILE=$BDF_INFO_FILE" >> "$GITHUB_ENV"
+          echo "file=$BDF_INFO_FILE" >> "$GITHUB_OUTPUT"
+
       - name: Print ath10k BDF info
         if: ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs != '' }}
         run: |
-          for BDF in ${{ needs.determine_changed_bdfs.outputs.ath10k_changed_bdfs }}; do
-            echo "BDF info for $BDF"
-            python qca_tools/tools/scripts/ath10k/ath10k-bdencoder -i "$BDF"
-          done
+          set -euo pipefail
+          while IFS= read -r BDF; do
+            [ -n "$BDF" ] || continue
+            {
+              echo "BDF info for $BDF"
+              python3 qca_tools/tools/scripts/ath10k/ath10k-bdencoder -i "$BDF"
+            } 2>&1 | tee -a "$BDF_INFO_FILE"
+          done <<< "$ATH10K_CHANGED_BDFS"
 
       - name: Print ath11k BDF info
         if: ${{ needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs != '' }}
         run: |
-          for BDF in ${{ needs.determine_changed_bdfs.outputs.ath11k_changed_bdfs }}; do
-          echo "BDF info for $BDF"
-            python qca_tools/tools/scripts/ath11k/ath11k-bdencoder -i "$BDF"
-          done
+          set -euo pipefail
+          while IFS= read -r BDF; do
+            [ -n "$BDF" ] || continue
+            {
+              echo "BDF info for $BDF"
+              python3 qca_tools/tools/scripts/ath11k/ath11k-bdencoder -i "$BDF"
+            } 2>&1 | tee -a "$BDF_INFO_FILE"
+          done <<< "$ATH11K_CHANGED_BDFS"
 
       - name: Print ath12k BDF info
         if: ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs != '' }}
         run: |
-          for BDF in ${{ needs.determine_changed_bdfs.outputs.ath12k_changed_bdfs }}; do
-          echo "BDF info for $BDF"
-            python qca_tools/tools/scripts/ath12k/ath12k-bdencoder -i "$BDF"
-          done
+          set -euo pipefail
+          while IFS= read -r BDF; do
+            [ -n "$BDF" ] || continue
+            {
+              echo "BDF info for $BDF"
+              python3 qca_tools/tools/scripts/ath12k/ath12k-bdencoder -i "$BDF"
+            } 2>&1 | tee -a "$BDF_INFO_FILE"
+          done <<< "$ATH12K_CHANGED_BDFS"
+
+      - name: Upload BDF info
+        if: ${{ always() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: bdf-info
+          path: ${{ steps.bdf_info.outputs.file }}
+          if-no-files-found: error
